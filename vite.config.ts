@@ -38,4 +38,7 @@ export default defineConfig({
   define: {
     global: "globalThis",
   },
+  preview: {
+    allowedHosts: ["bridge.shadownet.tezlink.nomadic-labs.com"],
+  },
 });
