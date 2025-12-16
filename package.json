@@ -51,7 +51,7 @@
     "typescript-eslint": "^8.50.0",
     "util": "^0.12.5",
     "vite": "^7.3.0",
-    "vite-plugin-eslint": "^1.8.1",
+    "@nabla/vite-plugin-eslint": "^2.0.6",
     "vite-plugin-node-polyfills": "^0.24.0",
     "web3": "^4.16.0"
   }
