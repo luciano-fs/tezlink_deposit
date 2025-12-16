@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import tezlinkLogo from './assets/XTZ.png'
 import './App.css'
 import { TezosToolkit, type Signer } from '@taquito/taquito';
@@ -18,10 +18,8 @@ import { SigningType } from '@airgap/beacon-dapp';
 import { Buffer } from 'buffer';
 import RLP from 'rlp';
 import CircularProgress from '@mui/material/CircularProgress';
-(window as any).global = window;
-(window as any).Buffer = Buffer;
-
-
+window.global = window;
+window.Buffer = Buffer;
 
 class BeaconSigner implements Signer {
   wallet: BeaconWallet;
@@ -48,7 +46,7 @@ class BeaconSigner implements Signer {
     return undefined;
   }
 
-  async sign(bytes: string, _magicByte?: Uint8Array): Promise<{
+  async sign(bytes: string): Promise<{
     bytes: string;
     sig: string;
     prefixSig: string;
@@ -68,7 +66,6 @@ class BeaconSigner implements Signer {
     };
   }
 }
-
 
 function App() {
 
@@ -113,8 +110,6 @@ function App() {
     console.log('Network is unparsable, switching to default network: ' + env_network)
     tezosRpcUrl += network;
   }
-
-
 
   let tzkt = 'https://api.shadownet.tzkt.io';
 
@@ -176,7 +171,6 @@ function App() {
       }
     }];
 
-
   // I didn't know what to put here so I kept the default one
   const defaultDataProvider = new DefaultDataProvider({
     dipDup: {
@@ -188,7 +182,7 @@ function App() {
     tokenPairs
   })
 
-  let tezosToolkit = new TezosToolkit(tezosRpcUrl);
+  const tezosToolkit = new TezosToolkit(tezosRpcUrl);
 
   const tokenBridge = new TokenBridge({
     tezosBridgeBlockchainService: new TaquitoWalletTezosBridgeBlockchainService({
@@ -217,15 +211,14 @@ function App() {
   // A boolean to let the user know if the bridge is processing its deposit
   const [load, setLoad] = useState(false);
 
-
   // Verify the valididty of the amount typed by the user
   const verify_validity = (amount: string) => {
     if (address == '') {
       setamountMessage("Please connect a wallet first")
       return false;
     }
-    let numAmount = Number(amount);
-    let numBalance = Number(balance);
+    const numAmount = Number(amount);
+    const numBalance = Number(balance);
     if (Number.isNaN(numAmount)) {
       setamountMessage("Please use a valid amount")
       return false;
@@ -240,7 +233,6 @@ function App() {
       return true;
     }
   }
-
 
   const connectWallet = async () => {
     await wallet.requestPermissions();
@@ -258,29 +250,35 @@ function App() {
 
   // Not much to say function to retrieve the balance of the connected user
   // To print it
-  const fetchBalance = async () => {
-    console.log("Fetch the balance of the address connected");
-    if (address == '') {
-      setBalance('');
-      return;
-    }
-
-    try {
-      const mutez = await tezosToolkit.tz.getBalance(address);
+  const fetchBalance = useCallback(
+    async (addr: string) => {
+      const mutez = await tezosToolkit.tz.getBalance(addr);
       const xtz = mutez.toNumber() / 1_000_000;
-
-      setBalance(xtz.toString());
-      console.log("Balance has been set");
-    } catch (err) {
-      console.error("Error balance", err);
-      setBalance('');
-    }
-  };
+      return String(xtz);
+    },
+    [tezosToolkit]
+  );
 
   // Hook to trigger the fetch balance function when the address variable is changed
   useEffect(() => {
-    fetchBalance();
-  }, [address]);
+    if (!address) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const nextBalance = await fetchBalance(address);
+        if (!cancelled) setBalance(nextBalance);
+      } catch (err) {
+        console.error("Error balance", err);
+        if (!cancelled) setBalance("");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, fetchBalance]);
 
   // Function to handle the submission of a deposit
   const handleSubmit = async (e: React.FormEvent) => {
@@ -292,31 +290,31 @@ function App() {
     }
 
     // At this point the amount should be valid (below the balance and correct)
-    let numAmount = Number(am);
-    let addr = b58decode(address);
+    const numAmount = Number(am);
+    const addr = b58decode(address);
     const data = Buffer.from(addr, 'hex');
-    let array = RLP.encode([[1, data], []]);
+    const array = RLP.encode([[1, data], []]);
     const hex = Buffer.from(array).toString('hex');
-    let mutez = numAmount * 1_000_000;
+    const mutez = numAmount * 1_000_000;
 
     // Those two provider are important, the first one is necessary to print correctly
     // the operation in umami, the second is obviously necessary to sign the operation
     tezosToolkit.setWalletProvider(wallet);
     tezosToolkit.setSignerProvider(new BeaconSigner(wallet));
 
-    const { tokenTransfer: _, operationResult } = await tokenBridge.deposit(BigInt(mutez), TezosToken, "01" + hex);
-    
+    const { operationResult } = await tokenBridge.deposit(BigInt(mutez), TezosToken, "01" + hex);
+
     // Set the load boolean to true to notify the user that its deposit is being processed
     setLoad(true);
 
     // We await the confirmation and inclusion in the chain for the deposit
-    let result = await operationResult.operation.confirmation(3);
+    const result = await operationResult.operation.confirmation(3);
 
     // When the operation is completed, set the load boolean to not completed (which is false if the operation is completed)
     setLoad(!result?.completed);
 
     // To let the user keep a track of its balance we fetch it again to reprint it
-    fetchBalance()
+    fetchBalance(address)
   };
 
   return (
@@ -365,7 +363,7 @@ function App() {
                       setamountMessage("Please connect a wallet first")
                       return;
                     } else {
-                      let amount = e.target.value;
+                      const amount = e.target.value;
                       verify_validity(amount)
                       setAmount(amount);
                     }
