@@ -43,7 +43,6 @@ class BeaconSigner implements Signer {
   }
 
   async secretKey(): Promise<string | undefined> {
-    // Wallets never expose secret keys
     return undefined
   }
 
@@ -180,10 +179,7 @@ export default function App() {
     [tezosToolkit, web3, dataProvider, config.rollup]
   )
 
-  const TezosToken: NativeTezosToken = useMemo(
-    () => ({ type: 'native' }),
-    []
-  )
+  const TezosToken: NativeTezosToken = useMemo(() => ({ type: 'native' }), [])
 
   const [amount, setAmount] = useState('')
   const [amountMessage, setAmountMessage] = useState('')
@@ -265,33 +261,202 @@ export default function App() {
     fetchBalance(address).then(setBalance).catch(() => setBalance(''))
   }, [address, fetchBalance])
 
+  const networkLabel = useMemo(() => {
+    const n = String(config.network).toLowerCase()
+    return n.charAt(0).toUpperCase() + n.slice(1)
+  }, [config.network])
+
+  const onMax = useCallback(() => {
+    if (!address) {
+      setAmountMessage('Please connect a wallet first')
+      return
+    }
+    setAmount(balance || '')
+    if (balance) verifyAmount(balance)
+  }, [address, balance, verifyAmount])
+
   return (
-    <>
-      <h1>Tezlink Bridge</h1>
+    <div style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', fontFamily: 'sans-serif' }}>
+        <h1 style={{ marginBottom: '1rem' }}>Tezlink Bridge</h1>
 
-      <form onSubmit={handleSubmit}>
-        <input
-          value={amount}
-          onChange={e => {
-            verifyAmount(e.target.value)
-            setAmount(e.target.value)
+        {/* Main card */}
+        <div
+          style={{
+            borderRadius: 16,
+            border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(20,20,20,0.9)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+            padding: 16,
           }}
-        />
+        >
+          {/* Header row: token + network */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 12,
+              paddingBottom: 12,
+              borderBottom: '1px solid rgba(255,255,255,0.12)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <img
+                src={tezlinkLogo}
+                alt="XTZ"
+                style={{ width: 26, height: 26, borderRadius: 6 }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>Token</span>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>XTZ</span>
+              </div>
+            </div>
 
-        {amountMessage && <p style={{ color: 'red' }}>{amountMessage}</p>}
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right' }}>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>Network</span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{networkLabel}</span>
+            </div>
+          </div>
 
-        {loading ? (
-          <CircularProgress />
-        ) : (
-          <button type="submit">Send ꜩ</button>
-        )}
-      </form>
+          {/* Amount row */}
+          <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr auto',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              {/* Max */}
+              <button
+                type="button"
+                onClick={onMax}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: 'rgba(255,255,255,0.85)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Max
+              </button>
 
-      {address ? (
-        <div>Connected</div>
-      ) : (
-        <button onClick={connectWallet}>Connect wallet</button>
-      )}
-    </>
+              {/* Input */}
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <input
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={amount}
+                  onChange={e => {
+                    verifyAmount(e.target.value)
+                    setAmount(e.target.value)
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    background: 'rgba(0,0,0,0.25)',
+                    color: 'rgba(255,255,255,0.92)',
+                    outline: 'none',
+                    fontSize: 18,
+                    fontWeight: 600,
+                  }}
+                />
+                {amountMessage && (
+                  <div style={{ marginTop: 8, color: '#ff6b6b', fontSize: 13 }}>
+                    {amountMessage}
+                  </div>
+                )}
+              </div>
+
+              {/* Balance */}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>Balance</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                  {balance !== '' ? balance : '-'}
+                </div>
+              </div>
+            </div>
+
+            {/* Action row */}
+            <div
+              style={{
+                marginTop: 16,
+                display: 'flex',
+                gap: 12,
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              {address ? (
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  Connected
+                  <span style={{ marginLeft: 8, opacity: 0.8 }}>
+                    {address.slice(0, 6)}…{address.slice(-4)}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, opacity: 0.7 }}>Not connected</div>
+              )}
+
+              {address ? (
+                loading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <CircularProgress size={22} />
+                    <span style={{ fontSize: 13, opacity: 0.8 }}>Processing…</span>
+                  </div>
+                ) : (
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(255,255,255,0.18)',
+                      background: 'rgba(255,255,255,0.10)',
+                      color: 'rgba(255,255,255,0.92)',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      minWidth: 120,
+                    }}
+                  >
+                    Send ꜩ
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={connectWallet}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    background: 'rgba(255, 59, 48, 0.75)',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    minWidth: 140,
+                  }}
+                >
+                  Connect wallet
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Small footer hint */}
+        <div style={{ marginTop: 12, fontSize: 12, opacity: 0.55 }}>
+          Deposit XTZ from Tezos to Etherlink via Tezlink.
+        </div>
+      </div>
+    </div>
   )
 }
