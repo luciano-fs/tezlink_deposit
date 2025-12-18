@@ -454,7 +454,7 @@ export default function App() {
 
         {/* Small footer hint */}
         <div style={{ marginTop: 12, fontSize: 12, opacity: 0.55 }}>
-          Deposit XTZ from Tezos to Etherlink via Tezlink.
+          Deposit XTZ from Tezos to Tezlink.
         </div>
       </div>
     </div>
